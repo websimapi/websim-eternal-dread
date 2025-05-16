@@ -171,9 +171,39 @@ export class Player {
             this.isRunning = false;
         }
         
-        this.direction.z = Number(this.keys.forward) - Number(this.keys.backward);
-        this.direction.x = Number(this.keys.right) - Number(this.keys.left);
-        this.direction.normalize();
+        // Reset direction vector
+        this.direction.set(0, 0, 0);
+        
+        // Get camera direction vectors
+        const cameraDirection = new THREE.Vector3();
+        this.camera.getWorldDirection(cameraDirection);
+        cameraDirection.y = 0; // Keep movement on the horizontal plane
+        cameraDirection.normalize();
+        
+        // Get right vector (perpendicular to camera direction)
+        const rightVector = new THREE.Vector3();
+        rightVector.crossVectors(new THREE.Vector3(0, 1, 0), cameraDirection).normalize();
+        
+        // Apply forward/backward movement relative to camera direction
+        if (this.keys.forward) {
+            this.direction.add(cameraDirection);
+        }
+        if (this.keys.backward) {
+            this.direction.sub(cameraDirection);
+        }
+        
+        // Apply left/right movement relative to camera direction
+        if (this.keys.right) {
+            this.direction.add(rightVector);
+        }
+        if (this.keys.left) {
+            this.direction.sub(rightVector);
+        }
+        
+        // Normalize direction if moving
+        if (this.direction.lengthSq() > 0) {
+            this.direction.normalize();
+        }
         
         // Apply gravity and check ground collision
         this.velocity.y -= this.gravity * delta;
@@ -188,20 +218,11 @@ export class Player {
             }
         }
         
-        // Update position
+        // Update velocity based on direction and speed
         const actualSpeed = this.isCrouching ? this.movementSpeed : this.movementSpeed * speedMultiplier;
         
-        if (this.direction.z !== 0) {
-            this.velocity.z = this.direction.z * actualSpeed;
-        } else {
-            this.velocity.z = 0;
-        }
-        
-        if (this.direction.x !== 0) {
-            this.velocity.x = this.direction.x * actualSpeed;
-        } else {
-            this.velocity.x = 0;
-        }
+        this.velocity.x = this.direction.x * actualSpeed;
+        this.velocity.z = this.direction.z * actualSpeed;
         
         // Move position
         this.position.x += this.velocity.x * delta;
