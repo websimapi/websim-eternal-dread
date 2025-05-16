@@ -22,6 +22,17 @@ export class Player {
         this.isRunning = false;
         this.canJump = true;
         
+        // Player dimensions
+        this.eyeHeight = 1.6;
+        this.crouchHeight = 0.8;
+        this.standingHeight = 1.6;
+        this.collisionRadius = 0.3;
+        
+        // Terrain following
+        this.currentGroundY = 0;
+        this.terrainSmoothingFactor = 0.25; // Lower for slower terrain adaptation
+        this.maxClimbAngle = Math.PI / 4; // Maximum angle player can climb (45 degrees)
+        
         this.sanity = 100;
         this.sanityDecreaseRate = 1.0; // Sanity lost per second in darkness
         
@@ -136,12 +147,15 @@ export class Player {
         this.isCrouching = !this.isCrouching;
         
         if (this.isCrouching) {
-            this.camera.position.y = 0.8; // Crouch height
+            this.eyeHeight = this.crouchHeight;
             this.movementSpeed = 2.0; // Slower when crouching
         } else {
-            this.camera.position.y = 1.6; // Standing height
+            this.eyeHeight = this.standingHeight;
             this.movementSpeed = 4.0; // Normal movement speed
         }
+        
+        // Don't immediately change camera height - let the movement system handle it
+        // based on current terrain to avoid clipping
     }
     
     jump() {
@@ -208,30 +222,103 @@ export class Player {
         // Apply gravity and check ground collision
         this.velocity.y -= this.gravity * delta;
         
-        // Make sure world is defined before accessing it
+        // Store previous position for collision detection
+        const previousPosition = this.position.clone();
+        
+        // Calculate horizontal movement
+        const actualSpeed = this.isCrouching ? this.movementSpeed : this.movementSpeed * speedMultiplier;
+        const horizontalVelocity = new THREE.Vector3(
+            this.direction.x * actualSpeed,
+            0,
+            this.direction.z * actualSpeed
+        );
+        
+        // Test terrain height at current position
         if (world) {
-            const groundY = world.getHeightAt(this.position.x, this.position.z);
-            if (this.position.y < groundY + 1.6 && this.velocity.y < 0) {
-                this.position.y = groundY + 1.6;
+            const currentGroundY = world.getHeightAt(this.position.x, this.position.z);
+            
+            // First, handle vertical movement (gravity, jumping)
+            // Apply vertical velocity
+            this.position.y += this.velocity.y * delta;
+            
+            // Now check if we're on the ground
+            const playerBottom = this.position.y - this.eyeHeight;
+            
+            if (playerBottom <= currentGroundY && this.velocity.y <= 0) {
+                // We've hit the ground
+                this.position.y = currentGroundY + this.eyeHeight;
                 this.velocity.y = 0;
                 this.canJump = true;
+                this.currentGroundY = currentGroundY;
+            }
+            
+            // Now handle horizontal movement with terrain adaptation
+            if (this.canJump) { // Only do terrain following when on the ground
+                // Try to move in the requested direction
+                const nextX = this.position.x + horizontalVelocity.x * delta;
+                const nextZ = this.position.z + horizontalVelocity.z * delta;
+                
+                // Get heights at test positions for slope calculation
+                const nextPosGroundY = world.getHeightAt(nextX, nextZ);
+                
+                // Calculate the slope angle
+                const rise = nextPosGroundY - currentGroundY;
+                const run = Math.sqrt(
+                    Math.pow(horizontalVelocity.x * delta, 2) + 
+                    Math.pow(horizontalVelocity.z * delta, 2)
+                );
+                
+                // Prevent division by zero
+                const slopeAngle = run > 0.001 ? Math.atan(rise / run) : 0;
+                
+                // Check if slope is too steep
+                if (Math.abs(slopeAngle) <= this.maxClimbAngle) {
+                    // Slope is walkable - apply movement
+                    this.position.x = nextX;
+                    this.position.z = nextZ;
+                    
+                    // Smoothly adapt to new ground height 
+                    const targetY = nextPosGroundY + this.eyeHeight;
+                    this.position.y = THREE.MathUtils.lerp(
+                        this.position.y, 
+                        targetY, 
+                        this.terrainSmoothingFactor
+                    );
+                    this.currentGroundY = nextPosGroundY;
+                } else {
+                    // Slope is too steep - slide along the slope
+                    const slopeDirection = new THREE.Vector3(
+                        horizontalVelocity.x, 
+                        0, 
+                        horizontalVelocity.z
+                    ).normalize();
+                    
+                    // Calculate normal vector to the slope
+                    const slopeNormal = new THREE.Vector3(
+                        -slopeDirection.z * Math.sign(rise), 
+                        0, 
+                        slopeDirection.x * Math.sign(rise)
+                    ).normalize();
+                    
+                    // Project movement onto the slope face
+                    const projectedVelocity = new THREE.Vector3()
+                        .copy(horizontalVelocity)
+                        .projectOnPlane(slopeNormal);
+                    
+                    // Apply reduced-speed projected movement
+                    this.position.x += projectedVelocity.x * delta * 0.5;
+                    this.position.z += projectedVelocity.z * delta * 0.5;
+                }
+            } else {
+                // We're in the air - apply horizontal movement without terrain adaptation
+                this.position.x += horizontalVelocity.x * delta;
+                this.position.z += horizontalVelocity.z * delta;
             }
         }
         
-        // Update velocity based on direction and speed
-        const actualSpeed = this.isCrouching ? this.movementSpeed : this.movementSpeed * speedMultiplier;
-        
-        this.velocity.x = this.direction.x * actualSpeed;
-        this.velocity.z = this.direction.z * actualSpeed;
-        
-        // Move position
-        this.position.x += this.velocity.x * delta;
-        this.position.y += this.velocity.y * delta;
-        this.position.z += this.velocity.z * delta;
-        
         // Update camera position
         this.camera.position.x = this.position.x;
-        // Y is handled by crouch toggle
+        this.camera.position.y = this.position.y;
         this.camera.position.z = this.position.z;
         
         // Play footstep sounds
@@ -378,7 +465,7 @@ export class Player {
     }
     
     cameraShake(intensity, duration) {
-        const originalY = this.isCrouching ? 0.8 : 1.6;
+        const originalY = this.position.y;
         let elapsed = 0;
         
         const shakeInterval = setInterval(() => {
@@ -410,6 +497,7 @@ export class Player {
         this.isDead = false;
         this.sanity = 100;
         this.batteryLevel = 100;
+        this.currentGroundY = 0;
         
         if (this.flashlightOn) {
             this.scene.remove(this.flashlight);
