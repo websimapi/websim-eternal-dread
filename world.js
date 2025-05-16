@@ -7,14 +7,14 @@ export class World {
         this.player = player;
         this.aiManager = aiManager;
         this.audioManager = audioManager;
-        
+
         this.chunks = new Map();
         this.chunkSize = 10;
         this.renderDistance = 3;
         this.entities = [];
         this.interactables = [];
         this.collidables = [];
-        
+
         this.noise2D = createNoise2D();
     }
 
@@ -25,13 +25,13 @@ export class World {
             wall: new THREE.TextureLoader().load('wall_texture.png'),
             tree: new THREE.TextureLoader().load('tree_texture.png')
         };
-        
+
         // Apply texture settings
         Object.values(this.textures).forEach(texture => {
             texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
             texture.repeat.set(1, 1);
         });
-        
+
         // Create materials with brighter colors
         this.materials = {
             ground: new THREE.MeshStandardMaterial({ 
@@ -55,33 +55,33 @@ export class World {
                 alphaTest: 0.5
             })
         };
-        
+
         // Generate initial chunks around player
         this.updateChunks();
-        
+
         // Create environment props
         await this.createEnvironmentProps();
     }
-    
+
     reset() {
         // Clear all chunks
         this.chunks.forEach(chunk => {
             chunk.dispose();
         });
         this.chunks.clear();
-        
+
         // Remove all entities
         this.entities.forEach(entity => {
             this.scene.remove(entity.mesh);
         });
         this.entities = [];
-        
+
         // Remove all interactables
         this.interactables = [];
-        
+
         // Clear collidables
         this.collidables = [];
-        
+
         // Regenerate chunks
         this.updateChunks();
     }
@@ -91,16 +91,16 @@ export class World {
         const chunkZ = Math.floor(z / this.chunkSize);
         return `${chunkX},${chunkZ}`;
     }
-    
+
     getChunkByPosition(x, z) {
         const key = this.getChunkKeyFromPosition(x, z);
         return this.chunks.get(key);
     }
-    
+
     updateChunks() {
         const playerChunkX = Math.floor(this.player.position.x / this.chunkSize);
         const playerChunkZ = Math.floor(this.player.position.z / this.chunkSize);
-        
+
         // Add new chunks that are in range
         for (let x = playerChunkX - this.renderDistance; x <= playerChunkX + this.renderDistance; x++) {
             for (let z = playerChunkZ - this.renderDistance; z <= playerChunkZ + this.renderDistance; z++) {
@@ -111,7 +111,7 @@ export class World {
                 }
             }
         }
-        
+
         // Remove chunks that are out of range
         this.chunks.forEach((chunk, key) => {
             const [x, z] = key.split(',').map(Number);
@@ -122,59 +122,59 @@ export class World {
             }
         });
     }
-    
+
     async createEnvironmentProps() {
         // Create different types of props (trees, rocks, etc.)
         const treeGeometry = new THREE.PlaneGeometry(2, 4);
-        
+
         // Create hideout spots
         for (let i = 0; i < 20; i++) {
             const angle = Math.random() * Math.PI * 2;
             const distance = 20 + Math.random() * 100;
             const x = Math.cos(angle) * distance;
             const z = Math.sin(angle) * distance;
-            
+
             this.createHideout(x, z);
         }
-        
+
         // Create horror elements that can trigger jump scares
         for (let i = 0; i < 30; i++) {
             const angle = Math.random() * Math.PI * 2;
             const distance = 15 + Math.random() * 120;
             const x = Math.cos(angle) * distance;
             const z = Math.sin(angle) * distance;
-            
+
             this.createHorrorElement(x, z);
         }
     }
-    
+
     createHideout(x, z) {
         // Create a small shelter where the player can hide
         const y = this.getHeightAt(x, z);
-        
+
         const width = 3 + Math.random() * 2;
         const depth = 3 + Math.random() * 2;
         const height = 2.5;
-        
+
         const geometry = new THREE.BoxGeometry(width, height, depth);
         const material = this.materials.wall;
-        
+
         const hideout = new THREE.Mesh(geometry, material);
         hideout.position.set(x, y + height/2, z);
         hideout.castShadow = true;
         hideout.receiveShadow = true;
         this.scene.add(hideout);
-        
+
         // Create a hole (entrance)
         const entranceWidth = 1.2;
         const entranceHeight = 1.8;
         const entranceGeometry = new THREE.BoxGeometry(entranceWidth, entranceHeight, depth + 0.5);
         const entrancePosition = new THREE.Vector3(x, y + entranceHeight/2, z + depth/2);
-        
+
         // Create a Boolean CSG operation to cut the entrance
         const entranceMesh = new THREE.Mesh(entranceGeometry);
         entranceMesh.position.copy(entrancePosition);
-        
+
         // Create an interactable for the hideout
         this.interactables.push({
             type: 'hideout',
@@ -187,14 +187,14 @@ export class World {
             }
         });
     }
-    
+
     createHorrorElement(x, z) {
         const y = this.getHeightAt(x, z);
-        
+
         // Random horror element (statue, altar, etc.)
         const type = Math.floor(Math.random() * 3);
         let mesh;
-        
+
         if (type === 0) {
             // Creepy statue
             const geometry = new THREE.CylinderGeometry(0.3, 0.3, 2, 8);
@@ -218,11 +218,11 @@ export class World {
             mesh.rotation.x = -Math.PI / 2;
             mesh.position.set(x, y + 0.01, z);
         }
-        
+
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         this.scene.add(mesh);
-        
+
         // Create an interactable horror element
         this.interactables.push({
             type: 'horror',
@@ -243,9 +243,11 @@ export class World {
             }
         });
     }
-    
+
     checkCollision(position, radius) {
-        // Legacy spherical collision check - kept for backward compatibility
+        // Improved collision detection with better accuracy
+
+        // First check simple sphere collisions
         for (const collidable of this.collidables) {
             if (!collidable.isComplex) {
                 const distance = position.distanceTo(collidable.position);
@@ -258,123 +260,164 @@ export class World {
                 }
             }
         }
-        
-        // New raycasting based collision detection with improved accuracy
+
+        // Then check complex collisions with meshes
         for (const collidable of this.collidables) {
             if (collidable.isComplex && collidable.collisionMesh) {
-                // Check if position is within the collision mesh bounds
+                // First do a quick bbox check
+                if (!collidable.collisionMesh.geometry.boundingBox) {
+                    collidable.collisionMesh.geometry.computeBoundingBox();
+                }
+
                 const bbox = collidable.collisionMesh.geometry.boundingBox.clone();
                 bbox.applyMatrix4(collidable.collisionMesh.matrixWorld);
-                
+
                 // Create a temp sphere to represent player
                 const tempSphere = new THREE.Sphere(position, radius);
-                
+
                 if (bbox.intersectsSphere(tempSphere)) {
-                    // More detailed check to reduce false positives
-                    // Calculate actual distance to mesh surface
+                    // Get object position
                     const meshPosition = new THREE.Vector3();
                     collidable.collisionMesh.getWorldPosition(meshPosition);
-                    
-                    const dirToCollider = new THREE.Vector3()
+
+                    // Get direction from object to player
+                    const dirToPlayer = new THREE.Vector3()
                         .subVectors(position, meshPosition)
                         .normalize();
-                    
-                    // Create a small offset to avoid self-intersections
-                    const rayStart = new THREE.Vector3()
-                        .copy(position)
-                        .sub(dirToCollider.multiplyScalar(radius * 0.5));
-                    
-                    const raycaster = new THREE.Raycaster(
-                        rayStart,
-                        dirToCollider,
-                        0,
-                        radius * 1.5
-                    );
-                    
-                    const intersects = raycaster.intersectObject(collidable.collisionMesh);
-                    
-                    if (intersects.length > 0 && intersects[0].distance < radius) {
-                        return {
-                            collides: true,
-                            object: collidable,
-                            penetration: radius - intersects[0].distance,
-                            isComplex: true,
-                            normal: intersects[0].face ? intersects[0].face.normal : dirToCollider.clone().negate()
-                        };
+
+                    // Cast multiple rays from different angles for more reliable detection
+                    const rays = [
+                        dirToPlayer,
+                        new THREE.Vector3(dirToPlayer.x, 0, dirToPlayer.z).normalize(),
+                        new THREE.Vector3(0, -1, 0) // Down ray
+                    ];
+
+                    for (const rayDir of rays) {
+                        // Create a small offset to avoid self-intersections
+                        const rayStart = new THREE.Vector3()
+                            .copy(position)
+                            .sub(rayDir.multiplyScalar(radius * 0.5));
+
+                        const raycaster = new THREE.Raycaster(
+                            rayStart,
+                            rayDir.clone().normalize(),
+                            0,
+                            radius * 2
+                        );
+
+                        const intersects = raycaster.intersectObject(collidable.collisionMesh);
+
+                        if (intersects.length > 0 && intersects[0].distance < radius) {
+                            return {
+                                collides: true,
+                                object: collidable,
+                                penetration: radius - intersects[0].distance,
+                                isComplex: true,
+                                normal: intersects[0].face ? intersects[0].face.normal : rayDir.clone().negate(),
+                                point: intersects[0].point
+                            };
+                        }
                     }
-                    
-                    // If raycasting didn't detect but bbox did, use a reduced "certainty" collision
+
+                    // If raycasting didn't detect but bbox did, use a simpler collision
                     return {
                         collides: true,
                         object: collidable,
-                        penetration: 0.05, // Smaller penetration value for less certain collisions
+                        penetration: 0.05,
                         isComplex: true
                     };
                 }
             }
         }
-        
+
         return { collides: false };
     }
 
     checkStandingCollision(position, radius, height) {
-        // Create a ray from the player position pointing down
+        // Improved ground collision detection
         const rayStart = new THREE.Vector3(position.x, position.y, position.z);
         const rayDirection = new THREE.Vector3(0, -1, 0);
-        const raycaster = new THREE.Raycaster(rayStart, rayDirection, 0, height + 0.2);
-        
-        // Check for intersections with collidable objects
+
+        // Cast a slightly wider ray to better detect edges
+        const raycaster = new THREE.Raycaster(rayStart, rayDirection, 0, height + 0.5);
+
+        // Get all potential objects for collision check
         const intersectObjects = [];
         for (const collidable of this.collidables) {
-            if (collidable.collisionMesh) {
+            if (collidable.collisionMesh && collidable.walkable !== false) {
                 intersectObjects.push(collidable.collisionMesh);
             }
         }
-        
-        // Perform the raycasting
-        const intersects = raycaster.intersectObjects(intersectObjects);
-        
-        if (intersects.length > 0) {
-            // Found something below the player
+
+        // Cast multiple rays at slight offsets for better detection
+        const rays = [
+            { x: 0, z: 0 },        // Center
+            { x: radius*0.7, z: 0 }, // Right
+            { x: -radius*0.7, z: 0 }, // Left
+            { x: 0, z: radius*0.7 },  // Front
+            { x: 0, z: -radius*0.7 }  // Back
+        ];
+
+        let closestHit = null;
+        let closestDistance = Infinity;
+
+        for (const offset of rays) {
+            const offsetRayStart = new THREE.Vector3(
+                rayStart.x + offset.x,
+                rayStart.y,
+                rayStart.z + offset.z
+            );
+
+            raycaster.set(offsetRayStart, rayDirection);
+            const intersects = raycaster.intersectObjects(intersectObjects);
+
+            if (intersects.length > 0) {
+                if (!closestHit || intersects[0].distance < closestDistance) {
+                    closestHit = intersects[0];
+                    closestDistance = intersects[0].distance;
+                }
+            }
+        }
+
+        if (closestHit) {
             return {
                 collides: true,
-                object: this.collidables.find(c => 
-                    c.collisionMesh === intersects[0].object),
-                distance: intersects[0].distance,
-                point: intersects[0].point
+                object: this.collidables.find(c => c.collisionMesh === closestHit.object),
+                distance: closestDistance,
+                point: closestHit.point
             };
         }
-        
+
         return { collides: false };
     }
 
     update(delta) {
         // Update chunks based on player position
         this.updateChunks();
-        
+
         // Update interactables
         this.interactables.forEach(interactable => {
             if (interactable.update) {
                 interactable.update(this.player.position, delta);
             }
         });
-        
+
         // Update entities
         this.entities.forEach(entity => {
             entity.update(delta);
         });
-        
+
         // Check if player is in a hideout
         const playerInHideout = this.interactables.some(
             interactable => interactable.type === 'hideout' && 
             interactable.isPlayerInside(this.player.position)
         );
-        
+
         if (playerInHideout && this.player.isCrouching) {
             this.player.recoverSanity(delta * 5);
         }
     }
-    
+
     getHeightAt(x, z) {
         const scale = 0.05;
         const height = this.noise2D(x * scale, z * scale) * 2;
@@ -393,41 +436,41 @@ class Chunk {
             0,
             z * this.size
         );
-        
+
         this.meshes = [];
         this.generate();
     }
-    
+
     generate() {
         const groundGeometry = new THREE.PlaneGeometry(this.size, this.size, 8, 8);
         groundGeometry.rotateX(-Math.PI / 2);
-        
+
         const vertices = groundGeometry.attributes.position.array;
         for (let i = 0; i < vertices.length; i += 3) {
             const x = vertices[i] + this.position.x;
             const z = vertices[i + 2] + this.position.z;
             vertices[i + 1] = this.world.getHeightAt(x, z);
         }
-        
+
         groundGeometry.computeVertexNormals();
-        
+
         const groundMesh = new THREE.Mesh(groundGeometry, this.world.materials.ground);
         groundMesh.position.copy(this.position);
         groundMesh.receiveShadow = true;
         this.world.scene.add(groundMesh);
         this.meshes.push(groundMesh);
-        
+
         const numFeatures = 5 + Math.floor(Math.random() * 10);
         for (let i = 0; i < numFeatures; i++) {
             const localX = Math.random() * this.size;
             const localZ = Math.random() * this.size;
             const worldX = this.position.x + localX;
             const worldZ = this.position.z + localZ;
-            
+
             if (Math.sqrt(worldX * worldX + worldZ * worldZ) < 10) continue;
-            
+
             const y = this.world.getHeightAt(worldX, worldZ);
-            
+
             if (Math.random() < 0.7) { 
                 this.createTree(worldX, y, worldZ);
             } else { 
@@ -435,14 +478,14 @@ class Chunk {
             }
         }
     }
-    
+
     createTree(x, y, z) {
         const height = 4 + Math.random() * 3;
         const width = height * 0.6;
         const trunkRadius = 0.3; 
-        
+
         const planeGeometry = new THREE.PlaneGeometry(width, height);
-        
+
         const treeMeshes = [];
         for (let i = 0; i < 2; i++) {
             const treeMesh = new THREE.Mesh(planeGeometry, this.world.materials.tree);
@@ -453,23 +496,25 @@ class Chunk {
             this.meshes.push(treeMesh);
             treeMeshes.push(treeMesh);
         }
-        
+
         // Create proper collision cylinder for the trunk
         const collisionGeometry = new THREE.CylinderGeometry(trunkRadius, trunkRadius, height, 8);
         collisionGeometry.computeBoundingBox();
-        
+
         const collisionMaterial = new THREE.MeshBasicMaterial({ 
             color: 0xff0000,
             wireframe: true,
             transparent: true,
             opacity: 0.0    // Invisible in game, just for collision
         });
-        
+
         const collisionMesh = new THREE.Mesh(collisionGeometry, collisionMaterial);
         collisionMesh.position.set(x, y + height/2, z);
+        collisionMesh.updateMatrix();
+        collisionMesh.updateMatrixWorld();
         this.world.scene.add(collisionMesh);
         this.meshes.push(collisionMesh);
-        
+
         this.world.collidables.push({
             position: new THREE.Vector3(x, y, z),
             radius: trunkRadius,
@@ -481,7 +526,7 @@ class Chunk {
             walkable: true  // Player can stand on this
         });
     }
-    
+
     createRock(x, y, z) {
         const size = 0.5 + Math.random() * 1;
         const geometry = new THREE.DodecahedronGeometry(size, 0);
@@ -490,7 +535,7 @@ class Chunk {
             roughness: 0.9,
             metalness: 0.0
         });
-        
+
         const rockMesh = new THREE.Mesh(geometry, material);
         rockMesh.position.set(x, y + size * 0.5, z);
         rockMesh.rotation.set(
@@ -500,27 +545,29 @@ class Chunk {
         );
         rockMesh.castShadow = true;
         rockMesh.receiveShadow = true;
-        
+
         this.world.scene.add(rockMesh);
         this.meshes.push(rockMesh);
-        
-        // Create collision mesh that matches rock shape
+
+        // Create collision mesh that matches rock shape exactly
         const collisionGeometry = new THREE.DodecahedronGeometry(size, 0);
         collisionGeometry.computeBoundingBox();
-        
+
         const collisionMaterial = new THREE.MeshBasicMaterial({ 
             color: 0xff0000,
             wireframe: true,
             transparent: true,
             opacity: 0.0  // Invisible in game, just for collision
         });
-        
+
         const collisionMesh = new THREE.Mesh(collisionGeometry, collisionMaterial);
         collisionMesh.position.copy(rockMesh.position);
         collisionMesh.rotation.copy(rockMesh.rotation);
+        collisionMesh.updateMatrix();
+        collisionMesh.updateMatrixWorld();
         this.world.scene.add(collisionMesh);
         this.meshes.push(collisionMesh);
-        
+
         this.world.collidables.push({
             position: new THREE.Vector3(x, y + size * 0.5, z),
             radius: size,
@@ -531,7 +578,7 @@ class Chunk {
             walkable: true  // Player can stand on this
         });
     }
-    
+
     dispose() {
         this.meshes.forEach(mesh => {
             this.world.scene.remove(mesh);
