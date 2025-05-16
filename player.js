@@ -182,7 +182,7 @@ export class Player {
         
         // Get right vector (perpendicular to camera direction)
         const rightVector = new THREE.Vector3();
-        rightVector.crossVectors(new THREE.Vector3(0, 1, 0), cameraDirection).normalize();
+        rightVector.crossVectors(cameraDirection, new THREE.Vector3(0, 1, 0)).normalize();
         
         // Apply forward/backward movement relative to camera direction
         if (this.keys.forward) {
