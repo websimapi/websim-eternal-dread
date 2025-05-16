@@ -259,7 +259,7 @@ export class World {
             }
         }
         
-        // New raycasting based collision detection
+        // New raycasting based collision detection with improved accuracy
         for (const collidable of this.collidables) {
             if (collidable.isComplex && collidable.collisionMesh) {
                 // Check if position is within the collision mesh bounds
@@ -270,10 +270,44 @@ export class World {
                 const tempSphere = new THREE.Sphere(position, radius);
                 
                 if (bbox.intersectsSphere(tempSphere)) {
+                    // More detailed check to reduce false positives
+                    // Calculate actual distance to mesh surface
+                    const meshPosition = new THREE.Vector3();
+                    collidable.collisionMesh.getWorldPosition(meshPosition);
+                    
+                    const dirToCollider = new THREE.Vector3()
+                        .subVectors(position, meshPosition)
+                        .normalize();
+                    
+                    // Create a small offset to avoid self-intersections
+                    const rayStart = new THREE.Vector3()
+                        .copy(position)
+                        .sub(dirToCollider.multiplyScalar(radius * 0.5));
+                    
+                    const raycaster = new THREE.Raycaster(
+                        rayStart,
+                        dirToCollider,
+                        0,
+                        radius * 1.5
+                    );
+                    
+                    const intersects = raycaster.intersectObject(collidable.collisionMesh);
+                    
+                    if (intersects.length > 0 && intersects[0].distance < radius) {
+                        return {
+                            collides: true,
+                            object: collidable,
+                            penetration: radius - intersects[0].distance,
+                            isComplex: true,
+                            normal: intersects[0].face ? intersects[0].face.normal : dirToCollider.clone().negate()
+                        };
+                    }
+                    
+                    // If raycasting didn't detect but bbox did, use a reduced "certainty" collision
                     return {
                         collides: true,
                         object: collidable,
-                        penetration: 0.1, // Default penetration
+                        penetration: 0.05, // Smaller penetration value for less certain collisions
                         isComplex: true
                     };
                 }
@@ -282,8 +316,7 @@ export class World {
         
         return { collides: false };
     }
-    
-    // Check if player can stand on top of an object
+
     checkStandingCollision(position, radius, height) {
         // Create a ray from the player position pointing down
         const rayStart = new THREE.Vector3(position.x, position.y, position.z);

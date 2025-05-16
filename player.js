@@ -348,10 +348,10 @@ export class Player {
                         .projectOnPlane(collisionNormal)
                         .normalize();
                     
-                    // Try to slide along the object
-                    if (slideDirection.lengthSq() > 0) {
-                        const slideX = this.position.x + slideDirection.x * actualSpeed * delta * 0.5;
-                        const slideZ = this.position.z + slideDirection.z * actualSpeed * delta * 0.5;
+                    // Try multiple slide directions if the first one fails
+                    const trySlide = (direction, factor = 0.5) => {
+                        const slideX = this.position.x + direction.x * actualSpeed * delta * factor;
+                        const slideZ = this.position.z + direction.z * actualSpeed * delta * factor;
                         
                         // Check if sliding causes another collision
                         const slidePosition = new THREE.Vector3(slideX, this.position.y, slideZ);
@@ -371,12 +371,32 @@ export class Player {
                                 this.terrainSmoothingFactor
                             );
                             this.currentGroundY = slideGroundY;
+                            return true;
                         }
-                        // If slide collision occurs, player stays in place
+                        return false;
+                    };
+                    
+                    // Try the primary slide direction
+                    if (slideDirection.lengthSq() > 0) {
+                        // Try primary slide direction
+                        const slidSuccess = trySlide(slideDirection);
+                        
+                        // If primary slide failed, try alternative directions
+                        if (!slidSuccess) {
+                            // Try sliding along x-axis only
+                            const xDirection = new THREE.Vector3(horizontalVelocity.x, 0, 0).normalize();
+                            const xSlideSuccess = trySlide(xDirection, 0.4);
+                            
+                            // If that fails, try sliding along z-axis only
+                            if (!xSlideSuccess) {
+                                const zDirection = new THREE.Vector3(0, 0, horizontalVelocity.z).normalize();
+                                trySlide(zDirection, 0.4);
+                            }
+                        }
                     }
                 }
             } else {
-                // Slope is too steep - slide along the slope
+                // Slope is too steep - slide along the slope with improved mechanics
                 const slopeDirection = new THREE.Vector3(
                     horizontalVelocity.x, 
                     0, 
@@ -395,9 +415,18 @@ export class Player {
                     .copy(horizontalVelocity)
                     .projectOnPlane(slopeNormal);
                 
-                // Apply reduced-speed projected movement
-                this.position.x += projectedVelocity.x * delta * 0.5;
-                this.position.z += projectedVelocity.z * delta * 0.5;
+                // Try primary slide direction
+                const nextX = this.position.x + projectedVelocity.x * delta * 0.5;
+                const nextZ = this.position.z + projectedVelocity.z * delta * 0.5;
+                
+                // Check for collision
+                const nextPosition = new THREE.Vector3(nextX, this.position.y, nextZ);
+                const collision = world.checkCollision(nextPosition, this.collisionRadius);
+                
+                if (!collision.collides) {
+                    this.position.x = nextX;
+                    this.position.z = nextZ;
+                }
             }
         } else {
             // We're in the air - apply horizontal movement without terrain adaptation
@@ -415,7 +444,7 @@ export class Player {
                 this.position.x = nextPosition.x;
                 this.position.z = nextPosition.z;
             } else {
-                // Handle air collision with sliding
+                // Handle air collision with improved sliding
                 const collisionNormal = new THREE.Vector3()
                     .subVectors(nextPosition, collision.object.position)
                     .normalize();
@@ -426,10 +455,10 @@ export class Player {
                     .projectOnPlane(collisionNormal)
                     .normalize();
                 
-                // Try to slide along the object
-                if (slideDirection.lengthSq() > 0) {
-                    const slideX = this.position.x + slideDirection.x * actualSpeed * delta * 0.5;
-                    const slideZ = this.position.z + slideDirection.z * actualSpeed * delta * 0.5;
+                // Try multiple slide directions
+                const trySlide = (direction, factor = 0.5) => {
+                    const slideX = this.position.x + direction.x * actualSpeed * delta * factor;
+                    const slideZ = this.position.z + direction.z * actualSpeed * delta * factor;
                     
                     // Check if sliding causes another collision
                     const slidePosition = new THREE.Vector3(slideX, this.position.y, slideZ);
@@ -439,9 +468,41 @@ export class Player {
                         // Slide successful
                         this.position.x = slideX;
                         this.position.z = slideZ;
+                        return true;
+                    }
+                    return false;
+                };
+                
+                // Try the primary slide direction
+                if (slideDirection.lengthSq() > 0) {
+                    // Try primary slide direction
+                    const slidSuccess = trySlide(slideDirection);
+                    
+                    // If primary slide failed, try alternative directions
+                    if (!slidSuccess) {
+                        // Try sliding along x-axis only
+                        const xDirection = new THREE.Vector3(horizontalVelocity.x, 0, 0).normalize();
+                        const xSlideSuccess = trySlide(xDirection, 0.4);
+                        
+                        // If that fails, try sliding along z-axis only
+                        if (!xSlideSuccess) {
+                            const zDirection = new THREE.Vector3(0, 0, horizontalVelocity.z).normalize();
+                            trySlide(zDirection, 0.4);
+                        }
                     }
                 }
             }
+        }
+        
+        // Add micro-adjustment if we're stuck
+        if (this.direction.lengthSq() > 0 && 
+            this.position.distanceTo(previousPosition) < 0.01 && 
+            this.canJump) {
+            // We haven't moved despite trying to - we might be stuck
+            // Add a tiny "unstuck" force
+            this.position.x += this.direction.x * 0.05;
+            this.position.z += this.direction.z * 0.05;
+            this.position.y += 0.05; // Slight upward nudge to clear small obstacles
         }
         
         // Update camera position
