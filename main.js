@@ -74,6 +74,9 @@ class Game {
         this.moonCycle = new MoonCycle(this.scene);
         this.updateLoadingProgress(95);
         
+        // Initialize collision debugger
+        this.collisionDebugger = new CollisionDebugger(this.scene, this.world);
+        
         // Final loading steps
         this.updateLoadingProgress(100);
         setTimeout(() => {
@@ -148,6 +151,10 @@ class Game {
                 case 'KeyC':
                     this.player.toggleCrouch();
                     break;
+                case 'KeyO':
+                    // Toggle collision debugger
+                    this.collisionDebugger.toggle();
+                    break;
             }
         });
     }
@@ -184,6 +191,7 @@ class Game {
             this.world.update(delta);
             this.aiManager.update(delta, this.player, this.world);
             this.moonCycle.update(delta);
+            this.collisionDebugger.update();
         }
         
         this.renderer.render(this.scene, this.camera);
@@ -289,6 +297,87 @@ class MoonCycle {
     
     getCurrentMoonlightLevel() {
         return this.moonLight.intensity;
+    }
+}
+
+class CollisionDebugger {
+    constructor(scene, world) {
+        this.scene = scene;
+        this.world = world;
+        this.enabled = false;
+        this.debugMeshes = [];
+    }
+    
+    toggle() {
+        this.enabled = !this.enabled;
+        
+        if (this.enabled) {
+            this.createDebugMeshes();
+        } else {
+            this.clearDebugMeshes();
+        }
+    }
+    
+    createDebugMeshes() {
+        this.clearDebugMeshes();
+        
+        for (const collidable of this.world.collidables) {
+            let debugMesh;
+            
+            if (collidable.isComplex && collidable.collisionMesh) {
+                // Clone the complex collision mesh
+                const geometry = collidable.collisionMesh.geometry.clone();
+                const material = new THREE.MeshBasicMaterial({
+                    color: 0xff0000,
+                    wireframe: true,
+                    transparent: true,
+                    opacity: 0.5
+                });
+                
+                debugMesh = new THREE.Mesh(geometry, material);
+                debugMesh.position.copy(collidable.collisionMesh.position);
+                debugMesh.rotation.copy(collidable.collisionMesh.rotation);
+                debugMesh.scale.copy(collidable.collisionMesh.scale);
+            } else {
+                // Create simple sphere for radius-based collisions
+                const geometry = new THREE.SphereGeometry(collidable.radius, 16, 16);
+                const material = new THREE.MeshBasicMaterial({
+                    color: 0xff0000,
+                    wireframe: true,
+                    transparent: true,
+                    opacity: 0.5
+                });
+                
+                debugMesh = new THREE.Mesh(geometry, material);
+                debugMesh.position.copy(collidable.position);
+            }
+            
+            this.scene.add(debugMesh);
+            this.debugMeshes.push(debugMesh);
+        }
+    }
+    
+    clearDebugMeshes() {
+        for (const mesh of this.debugMeshes) {
+            this.scene.remove(mesh);
+            if (mesh.geometry) mesh.geometry.dispose();
+            if (mesh.material) {
+                if (Array.isArray(mesh.material)) {
+                    mesh.material.forEach(mat => mat.dispose());
+                } else {
+                    mesh.material.dispose();
+                }
+            }
+        }
+        this.debugMeshes = [];
+    }
+    
+    update() {
+        if (!this.enabled) return;
+        
+        // Clear and recreate debug meshes each frame
+        this.clearDebugMeshes();
+        this.createDebugMeshes();
     }
 }
 

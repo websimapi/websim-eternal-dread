@@ -244,45 +244,77 @@ export class World {
         });
     }
     
-    checkCollision(position, radius, checkVertical = false) {
+    checkCollision(position, radius) {
+        // Legacy spherical collision check - kept for backward compatibility
         for (const collidable of this.collidables) {
-            const horizontalDistance = new THREE.Vector2(
-                position.x - collidable.position.x,
-                position.z - collidable.position.z
-            ).length();
-            
-            if (horizontalDistance < radius + collidable.radius) {
-                // For vertical check, make sure we're actually above the object
-                if (checkVertical) {
-                    // For trees, check if we're within the trunk radius
-                    if (collidable.type === 'tree') {
-                        // Trees have a very small trunk radius for landing
-                        const trunkRadius = collidable.radius * 0.3;
-                        if (horizontalDistance > trunkRadius) {
-                            continue; // Not above the trunk, so no collision
-                        }
-                    }
-                    
-                    // Check if we're at or below the top of the object
-                    const objectTop = collidable.position.y + 
-                        (collidable.type === 'rock' ? collidable.radius : 0);
-                    
-                    // Only collide if we're near the top of the object
-                    if (position.y > objectTop + 0.7) {
-                        continue; // Too far above the object, no collision
-                    }
+            if (!collidable.isComplex) {
+                const distance = position.distanceTo(collidable.position);
+                if (distance < radius + collidable.radius) {
+                    return {
+                        collides: true,
+                        object: collidable,
+                        penetration: radius + collidable.radius - distance
+                    };
                 }
-                
-                return {
-                    collides: true,
-                    object: collidable,
-                    penetration: radius + collidable.radius - horizontalDistance
-                };
             }
         }
+        
+        // New raycasting based collision detection
+        for (const collidable of this.collidables) {
+            if (collidable.isComplex && collidable.collisionMesh) {
+                // Check if position is within the collision mesh bounds
+                const bbox = collidable.collisionMesh.geometry.boundingBox.clone();
+                bbox.applyMatrix4(collidable.collisionMesh.matrixWorld);
+                
+                // Create a temp sphere to represent player
+                const tempSphere = new THREE.Sphere(position, radius);
+                
+                if (bbox.intersectsSphere(tempSphere)) {
+                    return {
+                        collides: true,
+                        object: collidable,
+                        penetration: 0.1, // Default penetration
+                        isComplex: true
+                    };
+                }
+            }
+        }
+        
         return { collides: false };
     }
     
+    // Check if player can stand on top of an object
+    checkStandingCollision(position, radius, height) {
+        // Create a ray from the player position pointing down
+        const rayStart = new THREE.Vector3(position.x, position.y, position.z);
+        const rayDirection = new THREE.Vector3(0, -1, 0);
+        const raycaster = new THREE.Raycaster(rayStart, rayDirection, 0, height + 0.2);
+        
+        // Check for intersections with collidable objects
+        const intersectObjects = [];
+        for (const collidable of this.collidables) {
+            if (collidable.collisionMesh) {
+                intersectObjects.push(collidable.collisionMesh);
+            }
+        }
+        
+        // Perform the raycasting
+        const intersects = raycaster.intersectObjects(intersectObjects);
+        
+        if (intersects.length > 0) {
+            // Found something below the player
+            return {
+                collides: true,
+                object: this.collidables.find(c => 
+                    c.collisionMesh === intersects[0].object),
+                distance: intersects[0].distance,
+                point: intersects[0].point
+            };
+        }
+        
+        return { collides: false };
+    }
+
     update(delta) {
         // Update chunks based on player position
         this.updateChunks();
@@ -378,6 +410,7 @@ class Chunk {
         
         const planeGeometry = new THREE.PlaneGeometry(width, height);
         
+        const treeMeshes = [];
         for (let i = 0; i < 2; i++) {
             const treeMesh = new THREE.Mesh(planeGeometry, this.world.materials.tree);
             treeMesh.position.set(x, y + height/2, z);
@@ -385,28 +418,35 @@ class Chunk {
             treeMesh.castShadow = true;
             this.world.scene.add(treeMesh);
             this.meshes.push(treeMesh);
+            treeMeshes.push(treeMesh);
         }
+        
+        // Create proper collision cylinder for the trunk
+        const collisionGeometry = new THREE.CylinderGeometry(trunkRadius, trunkRadius, height, 8);
+        collisionGeometry.computeBoundingBox();
+        
+        const collisionMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xff0000,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.0    // Invisible in game, just for collision
+        });
+        
+        const collisionMesh = new THREE.Mesh(collisionGeometry, collisionMaterial);
+        collisionMesh.position.set(x, y + height/2, z);
+        this.world.scene.add(collisionMesh);
+        this.meshes.push(collisionMesh);
         
         this.world.collidables.push({
             position: new THREE.Vector3(x, y, z),
             radius: trunkRadius,
             height: height,
-            type: 'tree'
+            type: 'tree',
+            isComplex: true,
+            collisionMesh: collisionMesh,
+            visualMeshes: treeMeshes,
+            walkable: true  // Player can stand on this
         });
-        
-        if (false) { 
-            const collisionGeometry = new THREE.CylinderGeometry(trunkRadius, trunkRadius, height, 8);
-            const collisionMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0xff0000,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.5
-            });
-            const collisionMesh = new THREE.Mesh(collisionGeometry, collisionMaterial);
-            collisionMesh.position.set(x, y + height/2, z);
-            this.world.scene.add(collisionMesh);
-            this.meshes.push(collisionMesh);
-        }
     }
     
     createRock(x, y, z) {
@@ -431,26 +471,32 @@ class Chunk {
         this.world.scene.add(rockMesh);
         this.meshes.push(rockMesh);
         
+        // Create collision mesh that matches rock shape
+        const collisionGeometry = new THREE.DodecahedronGeometry(size, 0);
+        collisionGeometry.computeBoundingBox();
+        
+        const collisionMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xff0000,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.0  // Invisible in game, just for collision
+        });
+        
+        const collisionMesh = new THREE.Mesh(collisionGeometry, collisionMaterial);
+        collisionMesh.position.copy(rockMesh.position);
+        collisionMesh.rotation.copy(rockMesh.rotation);
+        this.world.scene.add(collisionMesh);
+        this.meshes.push(collisionMesh);
+        
         this.world.collidables.push({
             position: new THREE.Vector3(x, y + size * 0.5, z),
             radius: size,
             type: 'rock',
-            mesh: rockMesh
+            mesh: rockMesh,
+            isComplex: true,
+            collisionMesh: collisionMesh,
+            walkable: true  // Player can stand on this
         });
-        
-        if (false) { 
-            const collisionGeometry = new THREE.SphereGeometry(size, 8, 8);
-            const collisionMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0xff0000,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.5
-            });
-            const collisionMesh = new THREE.Mesh(collisionGeometry, collisionMaterial);
-            collisionMesh.position.set(x, y + size * 0.5, z);
-            this.world.scene.add(collisionMesh);
-            this.meshes.push(collisionMesh);
-        }
     }
     
     dispose() {
