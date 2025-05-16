@@ -1,0 +1,224 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+    background-color: #000;
+    color: #fff;
+}
+
+#game-container {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    display: flex;
+    pointer-events: none;
+}
+
+#sanity-meter {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    width: 200px;
+}
+
+#sanity-label {
+    font-size: 14px;
+    color: #ff5555;
+    margin-bottom: 5px;
+    text-shadow: 0 0 5px #ff0000;
+}
+
+#sanity-bar-container {
+    width: 100%;
+    height: 20px;
+    background-color: rgba(0, 0, 0, 0.7);
+    border: 1px solid #ff5555;
+}
+
+#sanity-bar {
+    height: 100%;
+    width: 100%;
+    background-color: #ff5555;
+    transition: width 0.5s;
+}
+
+#inventory-bar {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 5px;
+}
+
+.inventory-slot {
+    width: 50px;
+    height: 50px;
+    background-color: rgba(0, 0, 0, 0.7);
+    border: 1px solid #aaa;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 24px;
+    text-shadow: 0 0 3px black;
+}
+
+#interaction-prompt {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 18px;
+    color: white;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 10px;
+    border-radius: 5px;
+    display: none;
+}
+
+#start-screen, #death-screen, #loading-screen {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-color: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
+
+.start-content, .death-content, .loading-content {
+    text-align: center;
+    max-width: 600px;
+}
+
+h1 {
+    font-size: 48px;
+    margin-bottom: 30px;
+    color: #ff5555;
+    text-shadow: 0 0 10px #ff0000;
+}
+
+p {
+    font-size: 18px;
+    margin-bottom: 30px;
+    color: #ccc;
+}
+
+button {
+    padding: 15px 30px;
+    font-size: 20px;
+    font-family: 'Courier New', monospace;
+    background-color: #300;
+    color: #ff5555;
+    border: 2px solid #ff5555;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 20px;
+}
+
+button:hover {
+    background-color: #500;
+    box-shadow: 0 0 15px #ff0000;
+}
+
+.instructions {
+    margin-top: 30px;
+    font-size: 14px;
+    color: #888;
+}
+
+.instructions p {
+    margin-bottom: 10px;
+}
+
+.loading-bar-container {
+    width: 100%;
+    height: 20px;
+    background-color: #300;
+    border: 1px solid #ff5555;
+    margin-bottom: 20px;
+}
+
+#loading-bar {
+    height: 100%;
+    width: 0%;
+    background-color: #ff5555;
+    transition: width 0.5s;
+}
+
+#death-screen {
+    background-color: rgba(80, 0, 0, 0.9);
+}
+
+.hidden {
+    display: none !important;
+}
+
+.jumpscare {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #300;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 50;
+    animation: flicker 0.2s infinite;
+}
+
+@keyframes flicker {
+    0% { opacity: 1; }
+    50% { opacity: 0.8; }
+    100% { opacity: 1; }
+}
+
+.jumpscare-text {
+    font-size: 72px;
+    color: #ff0000;
+    text-shadow: 0 0 20px #ff0000;
+    max-width: 80%;
+    text-align: center;
+}
+
+.vignette {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.7) 100%);
+    pointer-events: none;
+    z-index: 11;
+}
+
+.blood-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(80, 0, 0, 0);
+    pointer-events: none;
+    z-index: 12;
+    transition: background-color 1s;
+}
+

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eternal Dread</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+                "simplex-noise": "https://cdn.jsdelivr.net/npm/simplex-noise@4.0.1/+esm"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="loading-screen">
+        <div class="loading-content">
+            <h1>ETERNAL DREAD</h1>
+            <div class="loading-bar-container">
+                <div id="loading-bar"></div>
+            </div>
+            <p id="loading-text">Preparing your nightmare...</p>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <div id="sanity-meter">
+            <div id="sanity-label">SANITY</div>
+            <div id="sanity-bar-container">
+                <div id="sanity-bar"></div>
+            </div>
+        </div>
+        <div id="inventory-bar"></div>
+        <div id="crosshair">+</div>
+        <div id="interaction-prompt"></div>
+    </div>
+
+    <div id="death-screen" class="hidden">
+        <div class="death-content">
+            <h1>YOUR MIND IS LOST</h1>
+            <p>The horrors have consumed your sanity</p>
+            <button id="restart-button">TRY AGAIN</button>
+        </div>
+    </div>
+
+    <div id="start-screen">
+        <div class="start-content">
+            <h1>ETERNAL DREAD</h1>
+            <p>Survive the horrors that lurk in the darkness</p>
+            <button id="start-button">BEGIN NIGHTMARE</button>
+            <div class="instructions">
+                <p>WASD - Move | SHIFT - Run | E - Interact | F - Toggle Flashlight</p>
+                <p>SPACE - Jump | C - Crouch | TAB - Inventory</p>
+                <p>Finding safe hiding spots restores sanity</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="main.js" type="module"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
+
