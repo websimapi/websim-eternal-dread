@@ -27,6 +27,7 @@ export class Player {
         this.crouchHeight = 0.8;
         this.standingHeight = 1.6;
         this.collisionRadius = 0.3;
+        this.collisionHeight = 0.8; // Height of the player's collision cylinder for vertical collision
         
         // Terrain following
         this.currentGroundY = 0;
@@ -241,10 +242,42 @@ export class Player {
             // Apply vertical velocity
             this.position.y += this.velocity.y * delta;
             
-            // Now check if we're on the ground
+            // Now check if we're on the ground or an object
             const playerBottom = this.position.y - this.eyeHeight;
+            let isOnObject = false;
+            let objectTop = 0;
             
-            if (playerBottom <= currentGroundY && this.velocity.y <= 0) {
+            // Check collision with objects for vertical landing
+            const feetPosition = new THREE.Vector3(
+                this.position.x,
+                playerBottom + 0.1, // Slightly above feet to detect landing
+                this.position.z
+            );
+            
+            const verticalCollision = world.checkCollision(feetPosition, this.collisionRadius, true);
+            
+            if (verticalCollision.collides && this.velocity.y <= 0) {
+                // We're landing on an object
+                isOnObject = true;
+                objectTop = verticalCollision.object.position.y;
+                
+                if (verticalCollision.object.type === 'rock') {
+                    objectTop += verticalCollision.object.radius;
+                } else if (verticalCollision.object.type === 'tree') {
+                    // Can't land on trees - they're too narrow at the top
+                    isOnObject = false;
+                }
+                
+                // Only land if we're above the object and falling
+                if (isOnObject && playerBottom <= objectTop + 0.1) {
+                    this.position.y = objectTop + this.eyeHeight;
+                    this.velocity.y = 0;
+                    this.canJump = true;
+                }
+            }
+            
+            // If not on an object, check terrain collision
+            if (!isOnObject && playerBottom <= currentGroundY && this.velocity.y <= 0) {
                 // We've hit the ground
                 this.position.y = currentGroundY + this.eyeHeight;
                 this.velocity.y = 0;

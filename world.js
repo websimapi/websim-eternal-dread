@@ -244,14 +244,39 @@ export class World {
         });
     }
     
-    checkCollision(position, radius) {
+    checkCollision(position, radius, checkVertical = false) {
         for (const collidable of this.collidables) {
-            const distance = position.distanceTo(collidable.position);
-            if (distance < radius + collidable.radius) {
+            const horizontalDistance = new THREE.Vector2(
+                position.x - collidable.position.x,
+                position.z - collidable.position.z
+            ).length();
+            
+            if (horizontalDistance < radius + collidable.radius) {
+                // For vertical check, make sure we're actually above the object
+                if (checkVertical) {
+                    // For trees, check if we're within the trunk radius
+                    if (collidable.type === 'tree') {
+                        // Trees have a very small trunk radius for landing
+                        const trunkRadius = collidable.radius * 0.3;
+                        if (horizontalDistance > trunkRadius) {
+                            continue; // Not above the trunk, so no collision
+                        }
+                    }
+                    
+                    // Check if we're at or below the top of the object
+                    const objectTop = collidable.position.y + 
+                        (collidable.type === 'rock' ? collidable.radius : 0);
+                    
+                    // Only collide if we're near the top of the object
+                    if (position.y > objectTop + 0.5) {
+                        continue; // Too far above the object, no collision
+                    }
+                }
+                
                 return {
                     collides: true,
                     object: collidable,
-                    penetration: radius + collidable.radius - distance
+                    penetration: radius + collidable.radius - horizontalDistance
                 };
             }
         }
