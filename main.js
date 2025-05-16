@@ -22,8 +22,9 @@ class Game {
 
         // Create scene
         this.scene = new THREE.Scene();
-        this.scene.fog = new THREE.FogExp2(0x000000, 0.05);
-        this.scene.background = new THREE.Color(0x000000);
+        // Reduced fog density for better visibility
+        this.scene.fog = new THREE.FogExp2(0x000000, 0.03);
+        this.scene.background = new THREE.Color(0x050505); // Slightly lighter background
 
         // Create renderer
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -87,8 +88,8 @@ class Game {
     }
 
     setupLighting() {
-        // Ambient light (slightly increased from 0.1 to 0.15)
-        const ambientLight = new THREE.AmbientLight(0x111111, 0.15);
+        // Increased ambient light for better visibility
+        const ambientLight = new THREE.AmbientLight(0x222222, 0.4);
         this.scene.add(ambientLight);
         
         // Moonlight will be added and managed by the MoonCycle class
@@ -204,7 +205,7 @@ class MoonCycle {
         this.currentPhase = 0;
         this.totalPhases = 8; // 8 phases of the moon
         
-        // Create the moonlight (directional light)
+        // Create the moonlight (directional light) - increased intensity
         this.moonLight = new THREE.DirectionalLight(0xCCCCFF, 0);
         this.moonLight.position.set(0, 10, -10);
         this.moonLight.castShadow = true;
@@ -248,26 +249,27 @@ class MoonCycle {
         let intensity = 0;
         
         // Special case for phases 4-6: chance for complete darkness
+        // Reduced probability of complete darkness from 30% to 15%
         if (this.currentPhase >= 3 && this.currentPhase <= 5) {
-            // 30% chance for no moonlight on these phases
-            if (Math.random() < 0.3) {
-                intensity = 0;
-                console.log("Moon obscured - complete darkness");
+            // 15% chance for no moonlight on these phases
+            if (Math.random() < 0.15) {
+                intensity = 0.1; // Minimum light instead of complete darkness
+                console.log("Moon obscured - very dark but not complete darkness");
                 this.moonLight.intensity = intensity;
                 return;
             }
         }
         
-        // Normal moon cycle
+        // Normal moon cycle - increased baseline intensity
         if (this.currentPhase < 4) {
             // Waxing moon (0-3)
-            intensity = 0.1 + (this.currentPhase * 0.1);
+            intensity = 0.25 + (this.currentPhase * 0.15);
         } else if (this.currentPhase === 4) {
-            // Full moon
-            intensity = 0.5;
+            // Full moon - significantly brighter
+            intensity = 0.8;
         } else {
             // Waning moon (5-7)
-            intensity = 0.3 - ((this.currentPhase - 5) * 0.1);
+            intensity = 0.5 - ((this.currentPhase - 5) * 0.1);
         }
         
         // Set the moonlight intensity
@@ -276,7 +278,7 @@ class MoonCycle {
         // Also adjust fog density based on moonlight
         if (this.scene.fog) {
             // More moonlight = less dense fog
-            this.scene.fog.density = 0.05 - (intensity * 0.05);
+            this.scene.fog.density = 0.03 - (intensity * 0.02);
         }
         
         // Update UI if available

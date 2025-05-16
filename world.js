@@ -31,25 +31,25 @@ export class World {
             texture.repeat.set(1, 1);
         });
         
-        // Create materials
+        // Create materials with brighter colors
         this.materials = {
             ground: new THREE.MeshStandardMaterial({ 
                 map: this.textures.ground,
-                roughness: 1.0,
+                roughness: 0.9,
                 metalness: 0.0,
-                color: 0x333333
+                color: 0x555555  // Lightened from 0x333333
             }),
             wall: new THREE.MeshStandardMaterial({ 
                 map: this.textures.wall,
-                roughness: 1.0,
+                roughness: 0.9,
                 metalness: 0.0,
-                color: 0x222222
+                color: 0x444444  // Lightened from 0x222222
             }),
             tree: new THREE.MeshStandardMaterial({
                 map: this.textures.tree,
-                roughness: 1.0,
+                roughness: 0.9,
                 metalness: 0.0,
-                color: 0x222222,
+                color: 0x444444,  // Lightened from 0x222222
                 side: THREE.DoubleSide,
                 alphaTest: 0.5
             })
@@ -353,12 +353,12 @@ class Chunk {
     }
     
     createRock(x, y, z) {
-        // Create a simple rock
+        // Create a simple rock with lighter color
         const size = 0.5 + Math.random() * 1;
         const geometry = new THREE.DodecahedronGeometry(size, 0);
         const material = new THREE.MeshStandardMaterial({ 
-            color: 0x555555,
-            roughness: 1.0,
+            color: 0x777777,  // Lightened from 0x555555
+            roughness: 0.9,
             metalness: 0.0
         });
         
@@ -392,4 +392,3 @@ class Chunk {
         this.meshes = [];
     }
 }
-

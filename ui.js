@@ -3,6 +3,7 @@ export class UI {
         this.inventoryVisible = false;
         this.setupInventoryUI();
         this.setupMoonPhaseUI();
+        this.setupBatteryIndicator();
     }
     
     setupInventoryUI() {
@@ -84,6 +85,39 @@ export class UI {
         document.getElementById('game-container').appendChild(this.moonPhaseIndicator);
     }
 
+    setupBatteryIndicator() {
+        this.batteryIndicator = document.createElement('div');
+        this.batteryIndicator.id = 'battery-indicator';
+        this.batteryIndicator.style.position = 'absolute';
+        this.batteryIndicator.style.bottom = '60px';
+        this.batteryIndicator.style.left = '20px';
+        this.batteryIndicator.style.width = '200px';
+        
+        const batteryLabel = document.createElement('div');
+        batteryLabel.textContent = 'BATTERY';
+        batteryLabel.style.fontSize = '14px';
+        batteryLabel.style.color = '#ffcc55';
+        batteryLabel.style.marginBottom = '5px';
+        this.batteryIndicator.appendChild(batteryLabel);
+        
+        const batteryBarContainer = document.createElement('div');
+        batteryBarContainer.style.width = '100%';
+        batteryBarContainer.style.height = '15px';
+        batteryBarContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        batteryBarContainer.style.border = '1px solid #ffcc55';
+        
+        this.batteryBar = document.createElement('div');
+        this.batteryBar.style.height = '100%';
+        this.batteryBar.style.width = '100%';
+        this.batteryBar.style.backgroundColor = '#ffcc55';
+        this.batteryBar.style.transition = 'width 0.5s';
+        
+        batteryBarContainer.appendChild(this.batteryBar);
+        this.batteryIndicator.appendChild(batteryBarContainer);
+        
+        document.getElementById('game-container').appendChild(this.batteryIndicator);
+    }
+    
     updateSanityBar(value) {
         const sanityBar = document.getElementById('sanity-bar');
         sanityBar.style.width = `${value}%`;
@@ -127,6 +161,21 @@ export class UI {
             this.moonShape.style.transform = `scale(${size})`;
             this.moonShape.style.borderRadius = '50%';
             this.moonPhaseIndicator.style.opacity = `${0.85 - ((phase - 4) * 0.15)}`;
+        }
+    }
+
+    updateBatteryLevel(level) {
+        if (this.batteryBar) {
+            this.batteryBar.style.width = `${level}%`;
+            
+            // Change color based on battery level
+            if (level > 60) {
+                this.batteryBar.style.backgroundColor = '#ffcc55';
+            } else if (level > 30) {
+                this.batteryBar.style.backgroundColor = '#ff9955';
+            } else {
+                this.batteryBar.style.backgroundColor = '#ff5555';
+            }
         }
     }
 

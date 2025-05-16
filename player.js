@@ -30,8 +30,8 @@ export class Player {
     }
     
     setupFlashlight() {
-        // Create flashlight (spotlight)
-        this.flashlight = new THREE.SpotLight(0xffffff, 1.0, 15, Math.PI / 6, 0.5, 1);
+        // Create flashlight (spotlight) - increased range and intensity
+        this.flashlight = new THREE.SpotLight(0xffffff, 1.5, 25, Math.PI / 5, 0.5, 1);
         this.flashlight.position.set(0, 0, 0);
         this.flashlight.castShadow = true;
         
@@ -45,12 +45,12 @@ export class Player {
         this.flashlight.shadow.mapSize.width = 1024;
         this.flashlight.shadow.mapSize.height = 1024;
         this.flashlight.shadow.camera.near = 0.5;
-        this.flashlight.shadow.camera.far = 15;
+        this.flashlight.shadow.camera.far = 25; // Increased far plane
         
         this.flashlightOn = false;
         this.batteryLevel = 100;
-        this.batteryDrainRate = 2.0; // Battery percentage lost per second
-        this.batteryRechargeRate = 1.0; // Battery percentage recharged per second when off
+        this.batteryDrainRate = 1.0; // Reduced battery drain rate (was 2.0)
+        this.batteryRechargeRate = 1.5; // Increased recharge rate (was 1.0)
     }
     
     setupKeyControls() {
@@ -244,6 +244,11 @@ export class Player {
         } else {
             this.batteryLevel = Math.min(100, this.batteryLevel + this.batteryRechargeRate * delta);
         }
+        
+        // Update battery indicator in UI
+        if (window.game && window.game.ui) {
+            window.game.ui.updateBatteryLevel(this.batteryLevel);
+        }
     }
     
     updateSanity(delta, world) {
@@ -251,8 +256,8 @@ export class Player {
         if (!this.flashlightOn) {
             const moonlightLevel = window.game?.moonCycle?.getCurrentMoonlightLevel() || 0;
             // Reduce sanity loss based on moonlight level
-            const darknessFactor = 1 - (moonlightLevel * 1.5);
-            this.sanity = Math.max(0, this.sanity - (this.sanityDecreaseRate * darknessFactor * delta));
+            const darknessFactor = 0.7 - (moonlightLevel * 1.5); // Reduced base darkness factor from 1.0 to 0.7
+            this.sanity = Math.max(0, this.sanity - (this.sanityDecreaseRate * Math.max(0, darknessFactor) * delta));
         }
         
         // Update UI
