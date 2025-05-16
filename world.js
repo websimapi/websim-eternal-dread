@@ -13,6 +13,7 @@ export class World {
         this.renderDistance = 3;
         this.entities = [];
         this.interactables = [];
+        this.collidables = [];
         
         this.noise2D = createNoise2D();
     }
@@ -37,19 +38,19 @@ export class World {
                 map: this.textures.ground,
                 roughness: 0.9,
                 metalness: 0.0,
-                color: 0x555555  // Lightened from 0x333333
+                color: 0x555555  
             }),
             wall: new THREE.MeshStandardMaterial({ 
                 map: this.textures.wall,
                 roughness: 0.9,
                 metalness: 0.0,
-                color: 0x444444  // Lightened from 0x222222
+                color: 0x444444  
             }),
             tree: new THREE.MeshStandardMaterial({
                 map: this.textures.tree,
                 roughness: 0.9,
                 metalness: 0.0,
-                color: 0x444444,  // Lightened from 0x222222
+                color: 0x444444,  
                 side: THREE.DoubleSide,
                 alphaTest: 0.5
             })
@@ -78,10 +79,13 @@ export class World {
         // Remove all interactables
         this.interactables = [];
         
+        // Clear collidables
+        this.collidables = [];
+        
         // Regenerate chunks
         this.updateChunks();
     }
-    
+
     getChunkKeyFromPosition(x, z) {
         const chunkX = Math.floor(x / this.chunkSize);
         const chunkZ = Math.floor(z / this.chunkSize);
@@ -226,7 +230,7 @@ export class World {
             mesh: mesh,
             triggerDistance: 3 + Math.random() * 2,
             activated: false,
-            jumpScareType: Math.floor(Math.random() * 5), // Different types of jump scares
+            jumpScareType: Math.floor(Math.random() * 5), 
             update: (playerPos, delta) => {
                 const distance = playerPos.distanceTo(new THREE.Vector3(x, y, z));
                 if (!this.activated && distance < this.triggerDistance) {
@@ -234,10 +238,24 @@ export class World {
                     this.activated = true;
                     setTimeout(() => {
                         this.activated = false;
-                    }, 60000); // Can be triggered again after a minute
+                    }, 60000); 
                 }
             }
         });
+    }
+    
+    checkCollision(position, radius) {
+        for (const collidable of this.collidables) {
+            const distance = position.distanceTo(collidable.position);
+            if (distance < radius + collidable.radius) {
+                return {
+                    collides: true,
+                    object: collidable,
+                    penetration: radius + collidable.radius - distance
+                };
+            }
+        }
+        return { collides: false };
     }
     
     update(delta) {
@@ -268,7 +286,6 @@ export class World {
     }
     
     getHeightAt(x, z) {
-        // Use simplex noise to generate terrain height
         const scale = 0.05;
         const height = this.noise2D(x * scale, z * scale) * 2;
         return height;
@@ -292,11 +309,9 @@ class Chunk {
     }
     
     generate() {
-        // Create ground
         const groundGeometry = new THREE.PlaneGeometry(this.size, this.size, 8, 8);
         groundGeometry.rotateX(-Math.PI / 2);
         
-        // Apply height to vertices
         const vertices = groundGeometry.attributes.position.array;
         for (let i = 0; i < vertices.length; i += 3) {
             const x = vertices[i] + this.position.x;
@@ -304,7 +319,6 @@ class Chunk {
             vertices[i + 1] = this.world.getHeightAt(x, z);
         }
         
-        // Update normals
         groundGeometry.computeVertexNormals();
         
         const groundMesh = new THREE.Mesh(groundGeometry, this.world.materials.ground);
@@ -313,7 +327,6 @@ class Chunk {
         this.world.scene.add(groundMesh);
         this.meshes.push(groundMesh);
         
-        // Add trees and rocks
         const numFeatures = 5 + Math.floor(Math.random() * 10);
         for (let i = 0; i < numFeatures; i++) {
             const localX = Math.random() * this.size;
@@ -321,27 +334,25 @@ class Chunk {
             const worldX = this.position.x + localX;
             const worldZ = this.position.z + localZ;
             
-            // Skip if too close to the origin (starting area)
             if (Math.sqrt(worldX * worldX + worldZ * worldZ) < 10) continue;
             
             const y = this.world.getHeightAt(worldX, worldZ);
             
-            if (Math.random() < 0.7) { // 70% chance for a tree
+            if (Math.random() < 0.7) { 
                 this.createTree(worldX, y, worldZ);
-            } else { // 30% chance for a rock
+            } else { 
                 this.createRock(worldX, y, worldZ);
             }
         }
     }
     
     createTree(x, y, z) {
-        // Create a tree using a billboard technique (crossed planes)
         const height = 4 + Math.random() * 3;
         const width = height * 0.6;
+        const trunkRadius = 0.3; 
         
         const planeGeometry = new THREE.PlaneGeometry(width, height);
         
-        // Create crossed planes
         for (let i = 0; i < 2; i++) {
             const treeMesh = new THREE.Mesh(planeGeometry, this.world.materials.tree);
             treeMesh.position.set(x, y + height/2, z);
@@ -350,14 +361,34 @@ class Chunk {
             this.world.scene.add(treeMesh);
             this.meshes.push(treeMesh);
         }
+        
+        this.world.collidables.push({
+            position: new THREE.Vector3(x, y, z),
+            radius: trunkRadius,
+            height: height,
+            type: 'tree'
+        });
+        
+        if (false) { 
+            const collisionGeometry = new THREE.CylinderGeometry(trunkRadius, trunkRadius, height, 8);
+            const collisionMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xff0000,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.5
+            });
+            const collisionMesh = new THREE.Mesh(collisionGeometry, collisionMaterial);
+            collisionMesh.position.set(x, y + height/2, z);
+            this.world.scene.add(collisionMesh);
+            this.meshes.push(collisionMesh);
+        }
     }
     
     createRock(x, y, z) {
-        // Create a simple rock with lighter color
         const size = 0.5 + Math.random() * 1;
         const geometry = new THREE.DodecahedronGeometry(size, 0);
         const material = new THREE.MeshStandardMaterial({ 
-            color: 0x777777,  // Lightened from 0x555555
+            color: 0x777777,
             roughness: 0.9,
             metalness: 0.0
         });
@@ -374,10 +405,30 @@ class Chunk {
         
         this.world.scene.add(rockMesh);
         this.meshes.push(rockMesh);
+        
+        this.world.collidables.push({
+            position: new THREE.Vector3(x, y + size * 0.5, z),
+            radius: size,
+            type: 'rock',
+            mesh: rockMesh
+        });
+        
+        if (false) { 
+            const collisionGeometry = new THREE.SphereGeometry(size, 8, 8);
+            const collisionMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xff0000,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.5
+            });
+            const collisionMesh = new THREE.Mesh(collisionGeometry, collisionMaterial);
+            collisionMesh.position.set(x, y + size * 0.5, z);
+            this.world.scene.add(collisionMesh);
+            this.meshes.push(collisionMesh);
+        }
     }
     
     dispose() {
-        // Remove all meshes from the scene
         this.meshes.forEach(mesh => {
             this.world.scene.remove(mesh);
             if (mesh.geometry) mesh.geometry.dispose();

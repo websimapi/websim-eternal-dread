@@ -273,18 +273,62 @@ export class Player {
                 
                 // Check if slope is too steep
                 if (Math.abs(slopeAngle) <= this.maxClimbAngle) {
-                    // Slope is walkable - apply movement
-                    this.position.x = nextX;
-                    this.position.z = nextZ;
+                    // Check for object collisions before moving
+                    const nextPosition = new THREE.Vector3(nextX, this.position.y, nextZ);
+                    const collision = world.checkCollision(nextPosition, this.collisionRadius);
                     
-                    // Smoothly adapt to new ground height 
-                    const targetY = nextPosGroundY + this.eyeHeight;
-                    this.position.y = THREE.MathUtils.lerp(
-                        this.position.y, 
-                        targetY, 
-                        this.terrainSmoothingFactor
-                    );
-                    this.currentGroundY = nextPosGroundY;
+                    if (!collision.collides) {
+                        // No collision - apply movement
+                        this.position.x = nextX;
+                        this.position.z = nextZ;
+                        
+                        // Smoothly adapt to new ground height 
+                        const targetY = nextPosGroundY + this.eyeHeight;
+                        this.position.y = THREE.MathUtils.lerp(
+                            this.position.y, 
+                            targetY, 
+                            this.terrainSmoothingFactor
+                        );
+                        this.currentGroundY = nextPosGroundY;
+                    } else {
+                        // Handle collision with sliding
+                        const collisionNormal = new THREE.Vector3()
+                            .subVectors(nextPosition, collision.object.position)
+                            .normalize();
+                        
+                        // Calculate slide direction (project velocity onto plane perpendicular to normal)
+                        const slideDirection = new THREE.Vector3()
+                            .copy(horizontalVelocity)
+                            .projectOnPlane(collisionNormal)
+                            .normalize();
+                        
+                        // Try to slide along the object
+                        if (slideDirection.lengthSq() > 0) {
+                            const slideX = this.position.x + slideDirection.x * actualSpeed * delta * 0.5;
+                            const slideZ = this.position.z + slideDirection.z * actualSpeed * delta * 0.5;
+                            
+                            // Check if sliding causes another collision
+                            const slidePosition = new THREE.Vector3(slideX, this.position.y, slideZ);
+                            const slideCollision = world.checkCollision(slidePosition, this.collisionRadius);
+                            
+                            if (!slideCollision.collides) {
+                                // Slide successful
+                                this.position.x = slideX;
+                                this.position.z = slideZ;
+                                
+                                // Update ground height for slide position
+                                const slideGroundY = world.getHeightAt(slideX, slideZ);
+                                const targetY = slideGroundY + this.eyeHeight;
+                                this.position.y = THREE.MathUtils.lerp(
+                                    this.position.y, 
+                                    targetY, 
+                                    this.terrainSmoothingFactor
+                                );
+                                this.currentGroundY = slideGroundY;
+                            }
+                            // If slide collision occurs, player stays in place
+                        }
+                    }
                 } else {
                     // Slope is too steep - slide along the slope
                     const slopeDirection = new THREE.Vector3(
@@ -311,8 +355,47 @@ export class Player {
                 }
             } else {
                 // We're in the air - apply horizontal movement without terrain adaptation
-                this.position.x += horizontalVelocity.x * delta;
-                this.position.z += horizontalVelocity.z * delta;
+                // But still check for collisions with objects
+                const nextPosition = new THREE.Vector3(
+                    this.position.x + horizontalVelocity.x * delta,
+                    this.position.y,
+                    this.position.z + horizontalVelocity.z * delta
+                );
+                
+                const collision = world.checkCollision(nextPosition, this.collisionRadius);
+                
+                if (!collision.collides) {
+                    // No collision - apply movement
+                    this.position.x = nextPosition.x;
+                    this.position.z = nextPosition.z;
+                } else {
+                    // Handle air collision with sliding
+                    const collisionNormal = new THREE.Vector3()
+                        .subVectors(nextPosition, collision.object.position)
+                        .normalize();
+                    
+                    // Calculate slide direction
+                    const slideDirection = new THREE.Vector3()
+                        .copy(horizontalVelocity)
+                        .projectOnPlane(collisionNormal)
+                        .normalize();
+                    
+                    // Try to slide along the object
+                    if (slideDirection.lengthSq() > 0) {
+                        const slideX = this.position.x + slideDirection.x * actualSpeed * delta * 0.5;
+                        const slideZ = this.position.z + slideDirection.z * actualSpeed * delta * 0.5;
+                        
+                        // Check if sliding causes another collision
+                        const slidePosition = new THREE.Vector3(slideX, this.position.y, slideZ);
+                        const slideCollision = world.checkCollision(slidePosition, this.collisionRadius);
+                        
+                        if (!slideCollision.collides) {
+                            // Slide successful
+                            this.position.x = slideX;
+                            this.position.z = slideZ;
+                        }
+                    }
+                }
             }
         }
         
