@@ -9,6 +9,8 @@ import { InventorySystem } from './inventory.js';
 
 class Game {
     constructor() {
+        // Initialize the clock
+        this.clock = new THREE.Clock();
         this.initialize();
         this.setupEventListeners();
     }
@@ -188,4 +190,3 @@ class Game {
 window.addEventListener('load', () => {
     const game = new Game();
 });
-

@@ -155,13 +155,13 @@ export class Player {
     update(delta, world) {
         if (this.isDead) return;
         
-        this.updateMovement(delta);
+        this.updateMovement(delta, world);
         this.updateFlashlight(delta);
         this.updateSanity(delta, world);
         this.checkInteractions(world);
     }
     
-    updateMovement(delta) {
+    updateMovement(delta, world) {
         // Calculate movement direction
         let speedMultiplier = 1;
         if (this.keys.run && !this.isCrouching) {
@@ -178,11 +178,14 @@ export class Player {
         // Apply gravity and check ground collision
         this.velocity.y -= this.gravity * delta;
         
-        const groundY = world.getHeightAt(this.position.x, this.position.z);
-        if (this.position.y < groundY + 1.6 && this.velocity.y < 0) {
-            this.position.y = groundY + 1.6;
-            this.velocity.y = 0;
-            this.canJump = true;
+        // Make sure world is defined before accessing it
+        if (world) {
+            const groundY = world.getHeightAt(this.position.x, this.position.z);
+            if (this.position.y < groundY + 1.6 && this.velocity.y < 0) {
+                this.position.y = groundY + 1.6;
+                this.velocity.y = 0;
+                this.canJump = true;
+            }
         }
         
         // Update position
@@ -301,6 +304,15 @@ export class Player {
     }
     
     interact(world) {
+        // Initialize inventory if not already set
+        if (!this.inventory) {
+            // This is a temporary fix - ideally the inventory should be passed
+            // to the Player constructor rather than created here
+            this.inventory = window.game?.inventory || {
+                addItem: () => console.warn("Inventory not properly initialized")
+            };
+        }
+
         // Handle interaction with objects
         const interactionRange = 3;
         let nearestInteractable = null;
@@ -384,4 +396,3 @@ export class Player {
         document.querySelector('.blood-overlay').style.backgroundColor = 'rgba(80, 0, 0, 0)';
     }
 }
-
