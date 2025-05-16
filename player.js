@@ -247,9 +247,12 @@ export class Player {
     }
     
     updateSanity(delta, world) {
-        // Decrease sanity in darkness
+        // Decrease sanity in darkness, adjusted by moon cycle
         if (!this.flashlightOn) {
-            this.sanity = Math.max(0, this.sanity - this.sanityDecreaseRate * delta);
+            const moonlightLevel = window.game?.moonCycle?.getCurrentMoonlightLevel() || 0;
+            // Reduce sanity loss based on moonlight level
+            const darknessFactor = 1 - (moonlightLevel * 1.5);
+            this.sanity = Math.max(0, this.sanity - (this.sanityDecreaseRate * darknessFactor * delta));
         }
         
         // Update UI

@@ -69,7 +69,9 @@ export class AIManager {
             
             if (this.jumpScareTimer >= this.nextRandomJumpScare) {
                 // Random chance for jump scare, higher when sanity is lower
-                const jumpScareChance = 0.2 + (1 - player.sanity / 100) * 0.5;
+                const moonlightLevel = window.game?.moonCycle?.getCurrentMoonlightLevel() || 0;
+                // Increase jump scare chance in brighter moonlight
+                const jumpScareChance = 0.2 + (1 - player.sanity / 100) * 0.5 + (moonlightLevel * 0.2);
                 
                 if (Math.random() < jumpScareChance) {
                     this.triggerRandomJumpScare(player);
@@ -200,6 +202,17 @@ export class AIManager {
         
         // Play monster spawn sound
         this.audioManager.playMonsterSound(monster.id, monster.type);
+        
+        // Increase spawn chance during full moonlight (phase 4)
+        const moonlightLevel = window.game?.moonCycle?.getCurrentMoonlightLevel() || 0;
+        if (moonlightLevel > 0.4) {
+            // Spawn an additional monster during bright moonlight
+            if (Math.random() < 0.3) {
+                setTimeout(() => {
+                    this.spawnMonster(nearPosition, world);
+                }, 5000);
+            }
+        }
     }
     
     removeMonster(index) {
@@ -285,4 +298,3 @@ export class AIManager {
         return this.jumpScareTimeoutMin + Math.random() * (this.jumpScareTimeoutMax - this.jumpScareTimeoutMin);
     }
 }
-

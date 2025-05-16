@@ -64,10 +64,14 @@ class Game {
         // Create world
         this.world = new World(this.scene, this.player, this.aiManager, this.audioManager);
         await this.world.initialize();
-        this.updateLoadingProgress(90);
+        this.updateLoadingProgress(80);
 
         // Set up lighting
         this.setupLighting();
+        
+        // Initialize moon cycle
+        this.moonCycle = new MoonCycle(this.scene);
+        this.updateLoadingProgress(95);
         
         // Final loading steps
         this.updateLoadingProgress(100);
@@ -78,12 +82,16 @@ class Game {
 
         // Start game loop
         this.animate();
+        
+        window.game = this;
     }
 
     setupLighting() {
-        // Ambient light (very dim)
-        const ambientLight = new THREE.AmbientLight(0x111111, 0.1);
+        // Ambient light (slightly increased from 0.1 to 0.15)
+        const ambientLight = new THREE.AmbientLight(0x111111, 0.15);
         this.scene.add(ambientLight);
+        
+        // Moonlight will be added and managed by the MoonCycle class
     }
 
     setupEventListeners() {
@@ -170,10 +178,11 @@ class Game {
         
         const delta = Math.min(0.1, this.clock.getDelta());
         
-        if (this.player.controlsActive && !this.player.isDead) {
+        if (this.player && this.player.controlsActive && !this.player.isDead) {
             this.player.update(delta, this.world);
             this.world.update(delta);
             this.aiManager.update(delta, this.player, this.world);
+            this.moonCycle.update(delta);
         }
         
         this.renderer.render(this.scene, this.camera);
@@ -184,6 +193,100 @@ class Game {
         this.controls.unlock();
         document.getElementById('death-screen').classList.remove('hidden');
         this.audioManager.playSound('player_death');
+    }
+}
+
+class MoonCycle {
+    constructor(scene) {
+        this.scene = scene;
+        this.cycleLength = 20 * 60; // 20 minutes in seconds
+        this.currentTime = 0;
+        this.currentPhase = 0;
+        this.totalPhases = 8; // 8 phases of the moon
+        
+        // Create the moonlight (directional light)
+        this.moonLight = new THREE.DirectionalLight(0xCCCCFF, 0);
+        this.moonLight.position.set(0, 10, -10);
+        this.moonLight.castShadow = true;
+        
+        // Configure shadow
+        this.moonLight.shadow.mapSize.width = 1024;
+        this.moonLight.shadow.mapSize.height = 1024;
+        this.moonLight.shadow.camera.near = 0.5;
+        this.moonLight.shadow.camera.far = 50;
+        this.moonLight.shadow.camera.left = -20;
+        this.moonLight.shadow.camera.right = 20;
+        this.moonLight.shadow.camera.top = 20;
+        this.moonLight.shadow.camera.bottom = -20;
+        
+        this.scene.add(this.moonLight);
+        
+        // Initialize with random phase
+        this.currentPhase = Math.floor(Math.random() * this.totalPhases);
+        this.updateMoonlightIntensity();
+        
+        console.log(`Moon cycle started at phase ${this.currentPhase + 1}`);
+    }
+    
+    update(delta) {
+        this.currentTime += delta;
+        
+        // Check if we need to change phase
+        if (this.currentTime >= this.cycleLength) {
+            this.currentTime = 0;
+            this.currentPhase = (this.currentPhase + 1) % this.totalPhases;
+            this.updateMoonlightIntensity();
+            console.log(`Moon phase changed to ${this.currentPhase + 1}`);
+        }
+    }
+    
+    updateMoonlightIntensity() {
+        // Phases 0-3: waxing moon (increasing light)
+        // Phase 4: full moon (brightest)
+        // Phases 5-7: waning moon (decreasing light)
+        
+        let intensity = 0;
+        
+        // Special case for phases 4-6: chance for complete darkness
+        if (this.currentPhase >= 3 && this.currentPhase <= 5) {
+            // 30% chance for no moonlight on these phases
+            if (Math.random() < 0.3) {
+                intensity = 0;
+                console.log("Moon obscured - complete darkness");
+                this.moonLight.intensity = intensity;
+                return;
+            }
+        }
+        
+        // Normal moon cycle
+        if (this.currentPhase < 4) {
+            // Waxing moon (0-3)
+            intensity = 0.1 + (this.currentPhase * 0.1);
+        } else if (this.currentPhase === 4) {
+            // Full moon
+            intensity = 0.5;
+        } else {
+            // Waning moon (5-7)
+            intensity = 0.3 - ((this.currentPhase - 5) * 0.1);
+        }
+        
+        // Set the moonlight intensity
+        this.moonLight.intensity = intensity;
+        
+        // Also adjust fog density based on moonlight
+        if (this.scene.fog) {
+            // More moonlight = less dense fog
+            this.scene.fog.density = 0.05 - (intensity * 0.05);
+        }
+        
+        // Update UI if available
+        if (window.game && window.game.ui) {
+            window.game.ui.updateMoonPhase(this.currentPhase, this.totalPhases);
+        }
+    }
+    
+    getCurrentMoonlightLevel() {
+        return this.moonLight.intensity;
     }
 }
 

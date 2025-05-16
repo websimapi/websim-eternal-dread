@@ -2,6 +2,7 @@ export class UI {
     constructor() {
         this.inventoryVisible = false;
         this.setupInventoryUI();
+        this.setupMoonPhaseUI();
     }
     
     setupInventoryUI() {
@@ -58,6 +59,31 @@ export class UI {
         }
     }
     
+    setupMoonPhaseUI() {
+        this.moonPhaseIndicator = document.createElement('div');
+        this.moonPhaseIndicator.id = 'moon-phase';
+        this.moonPhaseIndicator.style.position = 'absolute';
+        this.moonPhaseIndicator.style.top = '20px';
+        this.moonPhaseIndicator.style.right = '20px';
+        this.moonPhaseIndicator.style.width = '40px';
+        this.moonPhaseIndicator.style.height = '40px';
+        this.moonPhaseIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        this.moonPhaseIndicator.style.borderRadius = '50%';
+        this.moonPhaseIndicator.style.overflow = 'hidden';
+        this.moonPhaseIndicator.style.boxShadow = '0 0 10px rgba(150, 150, 255, 0.5)';
+        
+        // Add inner moon shape
+        this.moonShape = document.createElement('div');
+        this.moonShape.style.width = '100%';
+        this.moonShape.style.height = '100%';
+        this.moonShape.style.backgroundColor = '#ccccff';
+        this.moonShape.style.borderRadius = '50%';
+        this.moonShape.style.transform = 'scale(0.8)';
+        this.moonPhaseIndicator.appendChild(this.moonShape);
+        
+        document.getElementById('game-container').appendChild(this.moonPhaseIndicator);
+    }
+
     updateSanityBar(value) {
         const sanityBar = document.getElementById('sanity-bar');
         sanityBar.style.width = `${value}%`;
@@ -72,6 +98,38 @@ export class UI {
         }
     }
     
+    updateMoonPhase(phase, totalPhases) {
+        // Update the visual representation of the moon phase
+        const scaleFactor = 0.8; // Maximum size of the moon
+        
+        // Full moon at phase 4
+        if (phase === 4) {
+            this.moonShape.style.transform = `scale(${scaleFactor})`;
+            this.moonShape.style.boxShadow = '0 0 10px rgba(200, 200, 255, 0.8)';
+            this.moonPhaseIndicator.style.opacity = '1';
+        } 
+        // New moon (very dark)
+        else if (phase === 0 || phase === totalPhases - 1) {
+            this.moonShape.style.transform = `scale(0.1)`;
+            this.moonPhaseIndicator.style.opacity = '0.3';
+        }
+        // Waxing phases (1-3)
+        else if (phase < 4) {
+            const size = 0.2 + (phase * 0.15);
+            // Right half of the moon grows
+            this.moonShape.style.transform = `scale(${size})`;
+            this.moonShape.style.borderRadius = '50%';
+            this.moonPhaseIndicator.style.opacity = `${0.4 + (phase * 0.15)}`;
+        }
+        // Waning phases (5-7)
+        else {
+            const size = 0.8 - ((phase - 4) * 0.15);
+            this.moonShape.style.transform = `scale(${size})`;
+            this.moonShape.style.borderRadius = '50%';
+            this.moonPhaseIndicator.style.opacity = `${0.85 - ((phase - 4) * 0.15)}`;
+        }
+    }
+
     showInteractionPrompt(text) {
         const prompt = document.getElementById('interaction-prompt');
         prompt.textContent = text;
@@ -138,4 +196,3 @@ export class UI {
         }
     }
 }
-
