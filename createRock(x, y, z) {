@@ -1,45 +1,45 @@
-    const size = 0.5 + Math.random() * 1;
-    const geometry = new THREE.DodecahedronGeometry(size, 0);
-    const material = new THREE.MeshStandardMaterial({ 
-        color: 0x777777,
-        roughness: 0.9,
-        metalness: 0.0
+const size = 0.5 + Math.random() * 1;
+const geometry = new THREE.DodecahedronGeometry(size, 0);
+const material = new THREE.MeshStandardMaterial({ 
+    color: 0x777777,
+    roughness: 0.9,
+    metalness: 0.0
+});
+
+const rockMesh = new THREE.Mesh(geometry, material);
+rockMesh.position.set(x, y + size * 0.5, z);
+rockMesh.rotation.set(
+    Math.random() * Math.PI, 
+    Math.random() * Math.PI, 
+    Math.random() * Math.PI
+);
+rockMesh.castShadow = true;
+rockMesh.receiveShadow = true;
+
+this.world.scene.add(rockMesh);
+this.meshes.push(rockMesh);
+
+// Store rock with its proper position and height for better collision
+this.world.collidables.push({
+    position: new THREE.Vector3(x, y + size * 0.5, z),
+    radius: size,
+    type: 'rock',
+    mesh: rockMesh,
+    height: size * 2 // Store full height
+});
+
+if (false) { 
+    const collisionGeometry = new THREE.SphereGeometry(size, 8, 8);
+    const collisionMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xff0000,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.5
     });
-    
-    const rockMesh = new THREE.Mesh(geometry, material);
-    rockMesh.position.set(x, y + size * 0.5, z);
-    rockMesh.rotation.set(
-        Math.random() * Math.PI, 
-        Math.random() * Math.PI, 
-        Math.random() * Math.PI
-    );
-    rockMesh.castShadow = true;
-    rockMesh.receiveShadow = true;
-    
-    this.world.scene.add(rockMesh);
-    this.meshes.push(rockMesh);
-    
-    // Store rock with its proper position and height for better collision
-    this.world.collidables.push({
-        position: new THREE.Vector3(x, y + size * 0.5, z),
-        radius: size,
-        type: 'rock',
-        mesh: rockMesh,
-        height: size * 2 // Store full height
-    });
-    
-    if (false) { 
-        const collisionGeometry = new THREE.SphereGeometry(size, 8, 8);
-        const collisionMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0xff0000,
-            wireframe: true,
-            transparent: true,
-            opacity: 0.5
-        });
-        const collisionMesh = new THREE.Mesh(collisionGeometry, collisionMaterial);
-        collisionMesh.position.set(x, y + size * 0.5, z);
-        this.world.scene.add(collisionMesh);
-        this.meshes.push(collisionMesh);
-    }
+    const collisionMesh = new THREE.Mesh(collisionGeometry, collisionMaterial);
+    collisionMesh.position.set(x, y + size * 0.5, z);
+    this.world.scene.add(collisionMesh);
+    this.meshes.push(collisionMesh);
+}
 }
 

@@ -262,14 +262,16 @@ export class Player {
                 objectTop = verticalCollision.object.position.y;
                 
                 if (verticalCollision.object.type === 'rock') {
-                    objectTop += verticalCollision.object.radius;
+                    // For rocks, we need to calculate the top properly
+                    // The rock's position is at its center
+                    objectTop += verticalCollision.object.radius * 0.8; // Using 0.8 instead of 1.0 for better feel
                 } else if (verticalCollision.object.type === 'tree') {
                     // Can't land on trees - they're too narrow at the top
                     isOnObject = false;
                 }
                 
                 // Only land if we're above the object and falling
-                if (isOnObject && playerBottom <= objectTop + 0.1) {
+                if (isOnObject && playerBottom <= objectTop + 0.2) {
                     this.position.y = objectTop + this.eyeHeight;
                     this.velocity.y = 0;
                     this.canJump = true;

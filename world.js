@@ -268,7 +268,7 @@ export class World {
                         (collidable.type === 'rock' ? collidable.radius : 0);
                     
                     // Only collide if we're near the top of the object
-                    if (position.y > objectTop + 0.5) {
+                    if (position.y > objectTop + 0.7) {
                         continue; // Too far above the object, no collision
                     }
                 }
